@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chord Sheet</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=Noto+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f3ef;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: #e0dbd2;
+    --border2: #ccc7bc;
+    --text: #2a2520;
+    --text-dim: #7a7570;
+    --text-muted: #b8b2a8;
+    --chord: #b8860b;
+    --chord-dim: #c8a040;
+    --accent: #b8860b;
+    --danger: #c0392b;
+    --mono: 'IBM Plex Mono', monospace;
+    --thai: 'Noto Sans Thai', sans-serif;
+  }
+
+  body.dark {
+    --bg: #0d0d0d;
+    --surface: #141414;
+    --surface2: #1a1a1a;
+    --border: #242424;
+    --border2: #2e2e2e;
+    --text: #e2d9c8;
+    --text-dim: #6b6560;
+    --text-muted: #3d3a36;
+    --chord: #e8b84b;
+    --chord-dim: #7a5e1a;
+    --accent: #e8b84b;
+    --danger: #c0392b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Layout ── */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 240px;
+    min-width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  .logo span { font-size: 18px; }
+
+  .btn-new {
+    background: var(--chord);
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: opacity 0.15s;
+  }
+
+  .btn-new:hover { opacity: 0.8; }
+
+  .sidebar-actions {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 6px;
+  }
+
+  .btn-io {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text-dim);
+    border-radius: 4px;
+    padding: 5px 8px;
+    cursor: pointer;
+    font-size: 10px;
+    font-family: var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: all 0.12s;
+    text-align: center;
+  }
+
+  .btn-io:hover { border-color: var(--chord); color: var(--chord); }
+  .btn-io.import:hover { border-color: #5b9bd5; color: #5b9bd5; }
+
+  .song-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+
+  .song-list::-webkit-scrollbar { width: 4px; }
+  .song-list::-webkit-scrollbar-track { background: transparent; }
+  .song-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .song-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .song-item:hover { background: var(--surface2); }
+
+  .song-item.active {
+    border-left-color: var(--chord);
+    background: var(--surface2);
+  }
+
+  .song-item-title {
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--thai);
+    line-height: 1.4;
+  }
+
+  .song-item.active .song-item-title { color: var(--chord); }
+
+  .song-item-artist {
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--thai);
+    margin-top: 2px;
+  }
+
+  .song-delete {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    opacity: 0;
+    transition: all 0.12s;
+    flex-shrink: 0;
+  }
+
+  .song-item:hover .song-delete { opacity: 1; }
+  .song-delete:hover { color: var(--danger); background: rgba(192,57,43,0.1); }
+
+  .empty-state {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1.8;
+  }
+
+  /* ── Main ── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .toolbar-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .ctrl-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text-dim);
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 15px;
+    font-family: var(--mono);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s;
+  }
+
+  .ctrl-btn:hover { border-color: var(--chord); color: var(--chord); }
+
+  .transpose-val {
+    min-width: 36px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.15s;
+    user-select: none;
+  }
+
+  .transpose-val.active { color: var(--chord); }
+
+  .font-val {
+    min-width: 28px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .toolbar-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+  }
+
+  .edit-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text-dim);
+    border-radius: 4px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--mono);
+    letter-spacing: 0.08em;
+    transition: all 0.12s;
+  }
+
+  .edit-btn:hover { border-color: var(--chord); color: var(--chord); }
+  .edit-btn.active { border-color: var(--chord); color: var(--chord); background: rgba(232,184,75,0.06); }
+
+  .save-btn {
+    background: var(--chord);
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 14px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--mono);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    transition: opacity 0.15s;
+    margin-left: auto;
+  }
+
+  .save-btn:hover { opacity: 0.85; }
+
+  /* ── Editor ── */
+  .editor-wrap {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Meta edit */
+  .meta-edit {
+    padding: 16px 24px 0;
+    display: flex;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .meta-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--thai);
+    font-size: 13px;
+    padding: 6px 0 8px;
+    outline: none;
+    flex: 1;
+    transition: border-color 0.15s;
+  }
+
+  .meta-input::placeholder { color: var(--text-muted); }
+  .meta-input:focus { border-bottom-color: var(--chord); }
+
+  .meta-input.title-input { font-weight: 600; font-size: 14px; }
+
+  textarea.chord-textarea {
+    flex: 1;
+    background: var(--bg);
+    color: var(--text-dim);
+    border: none;
+    outline: none;
+    padding: 24px;
+    font-size: 14px;
+    font-family: var(--mono);
+    line-height: 2;
+    resize: none;
+    tab-size: 4;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  textarea.chord-textarea::placeholder { color: var(--text-muted); }
+
+  /* ── View ── */
+  .view-wrap {
+    flex: 1;
+    overflow: auto;
+    padding: 28px 32px;
+  }
+
+  .view-wrap::-webkit-scrollbar { width: 6px; }
+  .view-wrap::-webkit-scrollbar-track { background: transparent; }
+  .view-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  .song-meta {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .song-title-view {
+    font-family: var(--thai);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .song-artist-view {
+    font-family: var(--thai);
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .chord-line { color: var(--chord); font-weight: 700; white-space: pre; line-height: 1.5; }
+  .lyric-line { color: var(--text); font-family: var(--thai); white-space: pre; line-height: 1.6; }
+  .section-header { color: var(--chord-dim); letter-spacing: 0.1em; margin-top: 20px; margin-bottom: 4px; }
+  .empty-line { height: 10px; }
+
+  /* ── No song selected ── */
+  .no-song {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--text-muted);
+  }
+
+  .no-song-icon { font-size: 48px; opacity: 0.3; }
+  .no-song-text { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(2px);
+  }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 24px;
+    width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .modal-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+  }
+
+  .modal-input {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--thai);
+    font-size: 13px;
+    padding: 9px 12px;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+
+  .modal-input:focus { border-color: var(--chord); }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+
+  .btn-cancel {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text-dim);
+    border-radius: 4px;
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--mono);
+    transition: all 0.12s;
+  }
+
+  .btn-cancel:hover { border-color: var(--text-dim); }
+
+  .btn-confirm {
+    background: var(--chord);
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--mono);
+    font-weight: 700;
+    transition: opacity 0.15s;
+  }
+
+  .btn-confirm:hover { opacity: 0.85; }
+
+  /* status toast */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--chord);
+    color: #000;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s;
+    pointer-events: none;
+    z-index: 200;
+  }
+
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── Snippet toolbar ── */
+  .snippet-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 7px 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-height: 40px;
+  }
+
+  .snippet-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-right: 4px;
+    flex-shrink: 0;
+  }
+
+  .snippet-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text-dim);
+    border-radius: 4px;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--mono);
+    white-space: nowrap;
+    transition: all 0.12s;
+    line-height: 1.6;
+  }
+
+  .snippet-btn:hover {
+    border-color: var(--chord);
+    color: var(--chord);
+    background: rgba(232,184,75,0.06);
+  }
+
+  .snippet-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* footer */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding: 7px 20px;
+    font-size: 10px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 16px;
+    background: var(--surface);
+  }
+
+  /* ── Settings modal ── */
+  .settings-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text-dim);
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.12s;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .settings-btn:hover { border-color: var(--chord); color: var(--chord); }
+
+  .settings-modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 20px;
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .settings-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .toggle {
+    width: 36px;
+    height: 20px;
+    background: var(--border2);
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .toggle.on { background: var(--chord); }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .toggle.on::after { transform: translateX(16px); }
+
+  /* ── Mobile responsive ── */
+  @media (max-width: 640px) {
+    .sidebar {
+      position: fixed;
+      left: 0; top: 0; bottom: 0;
+      width: 80vw;
+      max-width: 300px;
+      z-index: 50;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    }
+    .sidebar.open { transform: translateX(0); }
+
+    .sidebar-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 40;
+      backdrop-filter: blur(2px);
+    }
+    .sidebar-overlay.show { display: block; }
+
+    .main { width: 100%; }
+
+    .toolbar {
+      padding: 8px 12px;
+      gap: 10px;
+    }
+
+    .toolbar-sep { display: none; }
+
+    .btn-menu {
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--text-dim);
+      border-radius: 4px;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .view-wrap { padding: 16px; }
+
+    textarea.chord-textarea { padding: 16px; font-size: 13px; }
+
+    .meta-edit { padding: 12px 16px 0; flex-direction: column; gap: 8px; }
+
+    .snippet-bar { padding: 6px 10px; gap: 5px; }
+    .snippet-btn { padding: 5px 9px; font-size: 11px; }
+
+    .footer { display: none; }
+
+    .song-title-view { font-size: 16px; }
+
+    .modal { width: 90vw; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo"><span>🎸</span> Chord Sheet</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="settings-btn" onclick="openSettings()" title="ตั้งค่า">⚙</button>
+        <button class="btn-new" onclick="openNewModal()" title="เพลงใหม่">+</button>
+      </div>
+    </div>
+    <div class="sidebar-actions">
+      <button class="btn-io" onclick="exportSongs()" title="Export ทุกเพลงเป็น .json">↓ Export</button>
+      <button class="btn-io import" onclick="triggerImport()" title="Import จากไฟล์ .json">↑ Import</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importSongs(event)">
+    </div>
+    <div class="song-list" id="songList"></div>
+  </div>
+
+  <!-- Main -->
+  <div class="main" id="mainArea">
+    <div class="no-song" id="noSong">
+      <div class="no-song-icon">🎵</div>
+      <div class="no-song-text">กด + เพื่อเพิ่มเพลงใหม่</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">Saved</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal" style="display:none">
+  <div class="settings-modal">
+    <div class="modal-title">⚙ ตั้งค่า</div>
+    <div class="settings-row">
+      <span class="settings-label">Dark Mode</span>
+      <div class="toggle-wrap" onclick="toggleDarkMode()">
+        <span id="themeLabel">Off</span>
+        <div class="toggle" id="darkToggle"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-confirm" onclick="closeSettings()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Song Modal -->
+<div class="modal-overlay" id="newModal" style="display:none">
+  <div class="modal">
+    <div class="modal-title">เพลงใหม่</div>
+    <input class="modal-input" id="newTitle" placeholder="ชื่อเพลง" />
+    <input class="modal-input" id="newArtist" placeholder="ศิลปิน (ถ้ามี)" />
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeNewModal()">ยกเลิก</button>
+      <button class="btn-confirm" onclick="createSong()">สร้าง</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Data ──
+const NOTES     = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const NOTES_FLAT= ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+const STORAGE_KEY = "chordsheet_songs";
+
+let songs = [];
+let currentId = null;
+let isEditing = false;
+let transpose = 0;
+let fontSize = 15;
+
+// ── Storage ──
+function load() {
+  try { songs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { songs = []; }
+  if (songs.length === 0) {
+    songs = [{
+      id: "umg9iwj",
+      title: "He's Gazing You from the Black Mirror",
+      artist: "Inspitative",
+      content: `Intro : C C / G G / Am Am / F F ( 4 times )\n\n[Bridge]\n*Am Am / Am Am / F F / Am Am\n\n[Chorus]\nDm Em / F F / G\nC C / G G / Am Am / F F ( 4 times )\n\n( * )\n\n**Am Am / F F / G G / F F\nAm Am / F F / G G / C Em\n\n( ** , ** )\n\nOutro : Am`,
+      transpose: 0,
+    }];
+    save();
+  }
+}
+
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(songs)); }
+function uid() { return Math.random().toString(36).slice(2,9); }
+function getSong(id) { return songs.find(s => s.id === id); }
+
+// ── Transpose logic ──
+function transposeChord(chord, steps) {
+  if (steps === 0) return chord;
+  const m = chord.match(/^([A-G][b#]?)(.*)/);
+  if (!m) return chord;
+  let idx = NOTES.indexOf(m[1]);
+  if (idx === -1) idx = NOTES_FLAT.indexOf(m[1]);
+  if (idx === -1) return chord;
+  const ni = ((idx + steps) % 12 + 12) % 12;
+  return (steps > 0 ? NOTES[ni] : NOTES_FLAT[ni]) + m[2];
+}
+
+const CHORD_RE = /^[A-Ga-g][b#]?(maj|min|m|M|dim|aug|sus|add|\d|\/[A-Ga-g][b#]?)*$/;
+const PREFIX_RE = /^(Intro|Outro|Instru|Interlude|Verse|Chorus|Bridge|Pre-Chorus|Solo|Coda)\s*:\s*/i;
+const SEPARATOR_RE = /^\/$/;
+const MARKER_RE = /^\*+$/;  // *, ** standalone
+const NEUTRAL_RE = /^(\d+|x\d*|\d*x|times|time|rpt|repeat|bar|bars|,)$/i;
+function isAnnotation(t) { return /^\(.*\)$/.test(t); }
+function isMarkerChord(tok) { return /^\*+[A-Ga-g][b#]?(maj|min|m|M|dim|aug|sus|add|\d|\/[A-Ga-g][b#]?)*$/.test(tok); }
+function isChordToken(t) {
+  return CHORD_RE.test(t) || SEPARATOR_RE.test(t) || isAnnotation(t) || NEUTRAL_RE.test(t) || MARKER_RE.test(t) || isMarkerChord(t);
+}
+
+// normalize chord token: capitalize root note e.g. am → Am, gmaj7 → Gmaj7
+function normalizeChord(tok) {
+  return tok.replace(/^([a-g])/, c => c.toUpperCase());
+}
+
+// normalize entire chord line: auto-capitalize chord tokens
+function normalizeChordLine(line) {
+  const prefixMatch = line.match(PREFIX_RE);
+  const chordPart = prefixMatch ? line.slice(prefixMatch[0].length) : line;
+  const rawTokens = [];
+  const tokenRe = /\([^)]*\)|[^\s]+|\s+/g;
+  let m;
+  while ((m = tokenRe.exec(chordPart)) !== null) rawTokens.push(m[0]);
+  const chordTokens = rawTokens.filter(t => t.trim());
+  if (chordTokens.length === 0) return line;
+  if (!chordTokens.every(t => isChordToken(t.trim()))) return line;
+  const prefix = prefixMatch ? prefixMatch[0] : '';
+  const normalized = rawTokens.map(t => {
+    if (!t.trim()) return t;
+    return CHORD_RE.test(t.trim()) ? normalizeChord(t) : t;
+  }).join('');
+  return prefix + normalized;
+}
+
+function renderLine(line, steps, fs) {
+  if (!line.trim()) return `<div class="empty-line"></div>`;
+  if (/^\[.+\]$/.test(line.trim())) {
+    return `<div class="section-header" style="font-size:${fs-1}px">${line}</div>`;
+  }
+
+  const prefixMatch = line.match(PREFIX_RE);
+  const chordPart = prefixMatch ? line.slice(prefixMatch[0].length) : line;
+
+  // tokenize: keep parenthesized groups as single token e.g. ( 2 times ) → one token
+  const rawTokens = [];
+  const tokenRe = /\([^)]*\)|[^\s]+|\s+/g;
+  let m2;
+  while ((m2 = tokenRe.exec(chordPart)) !== null) rawTokens.push(m2[0]);
+
+  const chordTokens = rawTokens.filter(t => t.trim());
+  const looksLikeChordLine = chordTokens.length > 0 && chordTokens.every(t => isChordToken(t.trim()));
+
+  if (looksLikeChordLine) {
+    const prefixHtml = prefixMatch
+      ? `<span style="color:var(--chord-dim);font-weight:600">${prefixMatch[0]}</span>`
+      : '';
+    const chordHtml = rawTokens.map(t => {
+      if (!t.trim()) return t;
+      const tok = t.trim();
+      if (CHORD_RE.test(tok)) return `<span style="color:var(--chord);font-weight:700">${transposeChord(normalizeChord(tok), steps)}</span>`;
+      if (isMarkerChord(tok)) {
+        // e.g. *Am → render * as marker, Am as chord
+        const stars = tok.match(/^\*+/)[0];
+        const chordPart2 = tok.slice(stars.length);
+        return `<span style="color:var(--chord);font-weight:700">${stars}${transposeChord(normalizeChord(chordPart2), steps)}</span>`;
+      }
+      if (MARKER_RE.test(tok)) return `<span style="color:var(--chord);font-weight:700">${tok}</span>`;
+      if (SEPARATOR_RE.test(tok)) return `<span style="color:var(--text-muted)">${tok}</span>`;
+      if (NEUTRAL_RE.test(tok)) return `<span style="color:var(--text-muted);font-style:italic">${tok}</span>`;
+      // annotation ( * ) ( ** , ** ) — chord color bold
+      return `<span style="color:var(--chord);font-weight:700;font-style:normal">${tok}</span>`;
+    }).join('');
+    return `<div class="chord-line" style="font-size:${fs}px">${prefixHtml}${chordHtml}</div>`;
+  }
+
+  return `<div class="lyric-line" style="font-size:${fs}px">${line}</div>`;
+}
+
+// ── UI ──
+function renderSidebar() {
+  const list = document.getElementById('songList');
+  if (songs.length === 0) {
+    list.innerHTML = `<div class="empty-state">ยังไม่มีเพลง<br>กด + เพื่อเพิ่ม</div>`;
+    return;
+  }
+  list.innerHTML = songs.map(s => `
+    <div class="song-item ${s.id === currentId ? 'active' : ''}" onclick="selectSongMobile('${s.id}')">
+      <div style="min-width:0">
+        <div class="song-item-title">${s.title || 'ไม่มีชื่อ'}</div>
+        ${s.artist ? `<div class="song-item-artist">${s.artist}</div>` : ''}
+      </div>
+      <button class="song-delete" onclick="deleteSong(event,'${s.id}')" title="ลบ">×</button>
+    </div>
+  `).join('');
+}
+
+function buildMain() {
+  const main = document.getElementById('mainArea');
+  const song = getSong(currentId);
+  if (!song) {
+    main.innerHTML = `
+      <div class="no-song" id="noSong">
+        <div class="no-song-icon">🎵</div>
+        <div class="no-song-text">กด + เพื่อเพิ่มเพลงใหม่</div>
+      </div>`;
+    return;
+  }
+
+  const tp = song.transpose || 0;
+  main.innerHTML = `
+    <div class="toolbar">
+      <button class="btn-menu" id="menuBtn" onclick="toggleSidebar()" style="display:none" title="เพลง">☰</button>
+      <div class="toolbar-group">
+        <span class="toolbar-label">Transpose</span>
+        <button class="ctrl-btn" onclick="changeTranspose(-1)">−</button>
+        <div class="transpose-val ${tp !== 0 ? 'active' : ''}" id="tpVal" onclick="resetTranspose()" title="reset">${tp > 0 ? '+'+tp : tp}</div>
+        <button class="ctrl-btn" onclick="changeTranspose(1)">+</button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <div class="toolbar-group">
+        <span class="toolbar-label">Size</span>
+        <button class="ctrl-btn" onclick="changeFontSize(-1)">−</button>
+        <div class="font-val" id="fsVal">${fontSize}</div>
+        <button class="ctrl-btn" onclick="changeFontSize(1)">+</button>
+      </div>
+      <div class="toolbar-sep"></div>
+      <button class="edit-btn ${isEditing ? 'active' : ''}" id="editBtn" onclick="toggleEdit()">
+        ${isEditing ? '✓ Done' : '✎ Edit'}
+      </button>
+      ${isEditing ? `<button class="save-btn" onclick="saveCurrentSong()">SAVE</button>` : `<button class="edit-btn" onclick="exportOneSong('${currentId}')" title="Export เพลงนี้">↓ Song</button>`}
+    </div>
+    <div class="editor-wrap" id="editorWrap"></div>
+  `;
+  renderContent();
+}
+
+function renderContent() {
+  const wrap = document.getElementById('editorWrap');
+  if (!wrap) return;
+  const song = getSong(currentId);
+  if (!song) return;
+
+  if (isEditing) {
+    const snippets = [
+      { label: 'Intro :', insert: 'Intro : ' },
+      { label: 'Verse :', insert: 'Verse : ' },
+      { label: 'Chorus :', insert: 'Chorus : ' },
+      { label: 'Bridge :', insert: 'Bridge : ' },
+      { label: 'Instru :', insert: 'Instru : ' },
+      { label: 'Outro :', insert: 'Outro : ' },
+      { label: '/', insert: ' / ' },
+      { label: '( 2 times )', insert: ' ( 2 times )' },
+      { label: '( 3 times )', insert: ' ( 3 times )' },
+      { label: '( 4 times )', insert: ' ( 4 times )' },
+      { label: '[Verse]', insert: '[Verse]\n' },
+      { label: '[Chorus]', insert: '[Chorus]\n' },
+      { label: '[Bridge]', insert: '[Bridge]\n' },
+    ];
+    const snippetBtns = snippets.map((s, i) =>
+      `<button class="snippet-btn" data-insert="${s.insert.replace(/"/g,'&quot;')}" onmousedown="event.preventDefault();saveSelection()">${s.label}</button>`
+    ).join('');
+    wrap.innerHTML = `
+      <div class="meta-edit">
+        <input class="meta-input title-input" id="editTitle" placeholder="ชื่อเพลง" value="${song.title || ''}" oninput="liveUpdateMeta()">
+        <input class="meta-input" id="editArtist" placeholder="ศิลปิน" value="${song.artist || ''}" oninput="liveUpdateMeta()">
+      </div>
+      <div class="snippet-bar"><span class="snippet-label">Insert</span>${snippetBtns}</div>
+      <textarea class="chord-textarea" id="chordTextarea" placeholder="วาง chord และเนื้อเพลงที่นี่...">${song.content || ''}</textarea>
+    `;
+    document.getElementById('chordTextarea').focus();
+    // bind snippet buttons via JS to avoid HTML attribute escaping issues
+    wrap.querySelectorAll('.snippet-btn').forEach(btn => {
+      btn.addEventListener('click', () => insertSnippet(btn.getAttribute('data-insert')));
+    });
+  } else {
+    const tp = song.transpose || 0;
+    const lines = (song.content || '').split('\n');
+    const html = lines.map(l => renderLine(l, tp, fontSize)).join('');
+    wrap.innerHTML = `
+      <div class="view-wrap">
+        ${song.title ? `
+          <div class="song-meta">
+            <div class="song-title-view">${song.title}</div>
+            ${song.artist ? `<div class="song-artist-view">${song.artist}</div>` : ''}
+          </div>` : ''}
+        ${html}
+      </div>`;
+  }
+}
+
+// ── Actions ──
+function selectSong(id) {
+  if (isEditing && currentId) autoSave();
+  isEditing = false;
+  currentId = id;
+  const song = getSong(id);
+  if (song) transpose = song.transpose || 0;
+  renderSidebar();
+  buildMain();
+}
+
+function toggleEdit() {
+  if (isEditing) autoSave();
+  isEditing = !isEditing;
+  buildMain();
+}
+
+function liveUpdateMeta() {
+  const song = getSong(currentId);
+  if (!song) return;
+  const t = document.getElementById('editTitle');
+  const a = document.getElementById('editArtist');
+  if (t) song.title = t.value;
+  if (a) song.artist = a.value;
+  renderSidebar();
+}
+
+function autoSave() {
+  const song = getSong(currentId);
+  if (!song) return;
+  const ta = document.getElementById('chordTextarea');
+  const t = document.getElementById('editTitle');
+  const a = document.getElementById('editArtist');
+  if (ta) {
+    // normalize chord lines on save
+    const normalized = ta.value.split('\n').map(normalizeChordLine).join('\n');
+    ta.value = normalized;
+    song.content = normalized;
+  }
+  if (t) song.title = t.value;
+  if (a) song.artist = a.value;
+  save();
+}
+
+function saveCurrentSong() {
+  autoSave();
+  showToast('Saved ✓');
+  isEditing = false;
+  renderSidebar();
+  buildMain();
+}
+
+function changeTranspose(delta) {
+  const song = getSong(currentId);
+  if (!song) return;
+  let tp = (song.transpose || 0) + delta;
+  if (tp > 6) tp -= 12;
+  if (tp < -6) tp += 12;
+  song.transpose = tp;
+  save();
+  buildMain();
+}
+
+function resetTranspose() {
+  const song = getSong(currentId);
+  if (!song) return;
+  song.transpose = 0;
+  save();
+  buildMain();
+}
+
+function changeFontSize(delta) {
+  fontSize = Math.max(11, Math.min(22, fontSize + delta));
+  const fsv = document.getElementById('fsVal');
+  if (fsv) fsv.textContent = fontSize;
+  if (!isEditing) renderContent();
+}
+
+function deleteSong(e, id) {
+  e.stopPropagation();
+  if (!confirm('ลบเพลงนี้?')) return;
+  songs = songs.filter(s => s.id !== id);
+  save();
+  if (currentId === id) { currentId = songs[0]?.id || null; isEditing = false; }
+  renderSidebar();
+  buildMain();
+}
+
+// ── New song modal ──
+function openNewModal() {
+  document.getElementById('newModal').style.display = 'flex';
+  document.getElementById('newTitle').value = '';
+  document.getElementById('newArtist').value = '';
+  setTimeout(() => document.getElementById('newTitle').focus(), 50);
+}
+
+function closeNewModal() { document.getElementById('newModal').style.display = 'none'; }
+
+function createSong() {
+  const title = document.getElementById('newTitle').value.trim() || 'ไม่มีชื่อ';
+  const artist = document.getElementById('newArtist').value.trim();
+  const song = { id: uid(), title, artist, content: '', transpose: 0 };
+  songs.unshift(song);
+  save();
+  closeNewModal();
+  isEditing = true;
+  currentId = song.id;
+  renderSidebar();
+  buildMain();
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ── Keyboard shortcut ──
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    if (currentId && isEditing) saveCurrentSong();
+  }
+  if (e.key === 'Escape') closeNewModal();
+});
+
+document.getElementById('newModal').addEventListener('keydown', e => {
+  if (e.key === 'Enter') createSong();
+});
+
+// ── Snippet insert ──
+let _savedSel = null;
+
+function saveSelection() {
+  const ta = document.getElementById('chordTextarea');
+  if (ta) _savedSel = { start: ta.selectionStart, end: ta.selectionEnd };
+}
+
+function insertSnippet(text) {
+  console.log('[snippet] called with:', JSON.stringify(text));
+  const ta = document.getElementById('chordTextarea');
+  console.log('[snippet] ta found:', !!ta);
+  console.log('[snippet] _savedSel:', JSON.stringify(_savedSel));
+  if (!ta) return;
+
+  const start = (_savedSel !== null) ? _savedSel.start : ta.selectionStart;
+  const end   = (_savedSel !== null) ? _savedSel.end   : ta.selectionEnd;
+  console.log('[snippet] inserting at', start, '-', end);
+  _savedSel = null;
+
+  const before = ta.value.slice(0, start);
+  const after  = ta.value.slice(end);
+  ta.value = before + text + after;
+  console.log('[snippet] new value:', JSON.stringify(ta.value));
+
+  const pos = start + text.length;
+  ta.focus();
+  ta.setSelectionRange(pos, pos);
+
+  const song = getSong(currentId);
+  if (song) song.content = ta.value;
+}
+
+// ── Export / Import ──
+function exportSongs() {
+  if (songs.length === 0) { showToast('ไม่มีเพลงที่จะ export'); return; }
+  const data = JSON.stringify({ version: 1, songs }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `chordsheet-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`Export ${songs.length} เพลง ✓`);
+}
+
+function exportOneSong(id) {
+  const song = getSong(id);
+  if (!song) return;
+  const data = JSON.stringify({ version: 1, songs: [song] }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const name = (song.title || 'song').replace(/[^a-zA-Z0-9ก-๙]+/g, '-');
+  a.href = url;
+  a.download = `${name}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`Export "${song.title}" ✓`);
+}
+
+function triggerImport() {
+  document.getElementById('importFile').value = '';
+  document.getElementById('importFile').click();
+}
+
+function importSongs(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      let imported = [];
+      // support both { songs: [...] } and raw array
+      if (Array.isArray(data)) imported = data;
+      else if (data.songs && Array.isArray(data.songs)) imported = data.songs;
+      else { showToast('ไฟล์ไม่ถูกต้อง'); return; }
+
+      // merge — skip duplicates by id, add new ones
+      const existingIds = new Set(songs.map(s => s.id));
+      const newSongs = imported.filter(s => s.id && s.title !== undefined);
+      let added = 0;
+      newSongs.forEach(s => {
+        if (existingIds.has(s.id)) {
+          // update existing
+          const idx = songs.findIndex(x => x.id === s.id);
+          if (idx !== -1) songs[idx] = { ...songs[idx], ...s };
+        } else {
+          songs.unshift({ ...s, id: s.id || uid() });
+          added++;
+        }
+      });
+      save();
+      renderSidebar();
+      if (!currentId && songs.length > 0) {
+        currentId = songs[0].id;
+        buildMain();
+      }
+      showToast(`Import ${newSongs.length} เพลง ✓ (ใหม่ ${added})`);
+    } catch {
+      showToast('อ่านไฟล์ไม่ได้ — ลองใหม่');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ── Sidebar mobile ──
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+}
+function checkMobile() {
+  const isMobile = window.innerWidth <= 640;
+  const btn = document.getElementById('menuBtn');
+  if (btn) btn.style.display = isMobile ? 'flex' : 'none';
+}
+window.addEventListener('resize', checkMobile);
+
+// close sidebar after selecting song on mobile
+const _origSelect = selectSong;
+// patch selectSong to close sidebar on mobile
+function selectSongMobile(id) {
+  _origSelect(id);
+  if (window.innerWidth <= 640) closeSidebar();
+}
+
+// ── Theme / Settings ──
+function applyTheme(dark) {
+  document.body.classList.toggle('dark', dark);
+  const tog = document.getElementById('darkToggle');
+  const lbl = document.getElementById('themeLabel');
+  if (tog) tog.classList.toggle('on', dark);
+  if (lbl) lbl.textContent = dark ? 'On' : 'Off';
+}
+
+function toggleDarkMode() {
+  const isDark = !document.body.classList.contains('dark');
+  localStorage.setItem('chordsheet_theme', isDark ? 'dark' : 'light');
+  applyTheme(isDark);
+}
+
+function openSettings() {
+  document.getElementById('settingsModal').style.display = 'flex';
+  applyTheme(document.body.classList.contains('dark'));
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+
+document.getElementById('settingsModal')?.addEventListener('click', e => {
+  if (e.target === document.getElementById('settingsModal')) closeSettings();
+});
+
+// ── Init ──
+load();
+currentId = songs[0]?.id || null;
+renderSidebar();
+buildMain();
+checkMobile();
+// apply saved theme
+const savedTheme = localStorage.getItem('chordsheet_theme');
+applyTheme(savedTheme === 'dark');
+</script>
+</body>
+</html>
