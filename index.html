@@ -396,6 +396,30 @@
     color: var(--text-dim);
   }
 
+  .capo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    background: var(--chord);
+    color: #000;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 3px 10px;
+    border-radius: 4px;
+  }
+
+  .capo-inline {
+    font-size: 11px;
+    color: var(--chord);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    font-family: var(--mono);
+    margin-top: 6px;
+  }
+
   .chord-line { color: var(--chord); font-weight: 700; white-space: pre; line-height: 1.5; }
   .lyric-line { color: var(--text); font-family: var(--thai); white-space: pre; line-height: 1.6; }
   .section-header { color: var(--chord-dim); letter-spacing: 0.1em; margin-top: 20px; margin-bottom: 4px; }
@@ -809,15 +833,32 @@ function uid() { return Math.random().toString(36).slice(2,9); }
 function getSong(id) { return songs.find(s => s.id === id); }
 
 // ── Transpose logic ──
+function transposeRoot(root, steps) {
+  let idx = NOTES.indexOf(root);
+  if (idx === -1) idx = NOTES_FLAT.indexOf(root);
+  if (idx === -1) return root;
+  const ni = ((idx + steps) % 12 + 12) % 12;
+  // use sharps for everything except Bb (index 10)
+  return ni === 10 ? 'Bb' : NOTES[ni];
+}
+
 function transposeChord(chord, steps) {
   if (steps === 0) return chord;
+  // handle slash chord e.g. G/B, Am/C
+  const slashMatch = chord.match(/^([A-G][b#]?(?:maj|min|m|M|dim|aug|sus|add|\d)*)(\/[A-G][b#]?)(.*)$/);
+  if (slashMatch) {
+    const rootPart  = slashMatch[1];
+    const bassNote  = slashMatch[2].slice(1); // strip leading /
+    const remainder = slashMatch[3];
+    const rootM = rootPart.match(/^([A-G][b#]?)(.*)/);
+    const newRoot = rootM ? transposeRoot(rootM[1], steps) + rootM[2] : rootPart;
+    const newBass = transposeRoot(bassNote, steps);
+    return newRoot + '/' + newBass + remainder;
+  }
+  // normal chord
   const m = chord.match(/^([A-G][b#]?)(.*)/);
   if (!m) return chord;
-  let idx = NOTES.indexOf(m[1]);
-  if (idx === -1) idx = NOTES_FLAT.indexOf(m[1]);
-  if (idx === -1) return chord;
-  const ni = ((idx + steps) % 12 + 12) % 12;
-  return (steps > 0 ? NOTES[ni] : NOTES_FLAT[ni]) + m[2];
+  return transposeRoot(m[1], steps) + m[2];
 }
 
 const CHORD_RE = /^[A-Ga-g][b#]?(maj|min|m|M|dim|aug|sus|add|\d|\/[A-Ga-g][b#]?)*$/;
@@ -831,9 +872,13 @@ function isChordToken(t) {
   return CHORD_RE.test(t) || SEPARATOR_RE.test(t) || isAnnotation(t) || NEUTRAL_RE.test(t) || MARKER_RE.test(t) || isMarkerChord(t);
 }
 
-// normalize chord token: capitalize root note e.g. am → Am, gmaj7 → Gmaj7
+// normalize chord token: capitalize root and bass note e.g. g/b → G/B
 function normalizeChord(tok) {
-  return tok.replace(/^([a-g])/, c => c.toUpperCase());
+  // capitalize root
+  let result = tok.replace(/^([a-g])/, c => c.toUpperCase());
+  // capitalize bass note after /
+  result = result.replace(/(\/)([a-g])/, (_, slash, note) => slash + note.toUpperCase());
+  return result;
 }
 
 // normalize entire chord line: auto-capitalize chord tokens
@@ -853,6 +898,12 @@ function normalizeChordLine(line) {
     return CHORD_RE.test(t.trim()) ? normalizeChord(t) : t;
   }).join('');
   return prefix + normalized;
+}
+
+function getCapo(tp) {
+  if (tp === 0) return null;
+  const fret = ((12 - tp) % 12 + 12) % 12;
+  return fret >= 1 && fret <= 11 ? fret : null;
 }
 
 function renderLine(line, steps, fs) {
@@ -937,6 +988,7 @@ function buildMain() {
         <span class="toolbar-label">Transpose</span>
         <button class="ctrl-btn" onclick="changeTranspose(-1)">−</button>
         <div class="transpose-val ${tp !== 0 ? 'active' : ''}" id="tpVal" onclick="resetTranspose()" title="reset">${tp > 0 ? '+'+tp : tp}</div>
+        ${(() => { const c = getCapo(tp); return c ? `<span style="font-size:10px;color:var(--chord);letter-spacing:0.08em;margin-left:2px">= Capo ${c}</span>` : ''; })()}
         <button class="ctrl-btn" onclick="changeTranspose(1)">+</button>
       </div>
       <div class="toolbar-sep"></div>
@@ -1005,6 +1057,7 @@ function renderContent() {
           <div class="song-meta">
             <div class="song-title-view">${song.title}</div>
             ${song.artist ? `<div class="song-artist-view">${song.artist}</div>` : ''}
+            ${(() => { const c = getCapo(tp); return c ? `<div class="capo-badge">🎸 Capo Fret ${c}</div>` : ''; })()}
           </div>` : ''}
         ${html}
       </div>`;
