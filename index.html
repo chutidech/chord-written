@@ -988,8 +988,8 @@ function buildMain() {
         <span class="toolbar-label">Transpose</span>
         <button class="ctrl-btn" onclick="changeTranspose(-1)">−</button>
         <div class="transpose-val ${tp !== 0 ? 'active' : ''}" id="tpVal" onclick="resetTranspose()" title="reset">${tp > 0 ? '+'+tp : tp}</div>
-        ${(() => { const c = getCapo(tp); return c ? `<span style="font-size:10px;color:var(--chord);letter-spacing:0.08em;margin-left:2px">= Capo ${c}</span>` : ''; })()}
         <button class="ctrl-btn" onclick="changeTranspose(1)">+</button>
+        ${isEditing && tp !== 0 ? `<button class="edit-btn" style="padding:4px 10px;font-size:10px;margin-left:4px" onclick="applyTranspose()">✓ Apply</button>` : ''}
       </div>
       <div class="toolbar-sep"></div>
       <div class="toolbar-group">
@@ -1106,6 +1106,51 @@ function autoSave() {
   if (t) song.title = t.value;
   if (a) song.artist = a.value;
   save();
+}
+
+function applyTranspose() {
+  const song = getSong(currentId);
+  if (!song) return;
+  const tp = song.transpose || 0;
+  if (tp === 0) { showToast('Transpose เป็น 0 อยู่แล้ว'); return; }
+
+  // bake transpose into content
+  const ta = document.getElementById('chordTextarea');
+  const currentContent = ta ? ta.value : song.content;
+  const baked = currentContent.split('\n').map(line => bakeTransposeLine(line, tp)).join('\n');
+
+  song.content = baked;
+  song.transpose = 0;
+  if (ta) ta.value = baked;
+  save();
+
+  showToast(`Apply Transpose ${tp > 0 ? '+'+tp : tp} ✓ → reset เป็น 0`);
+  buildMain();
+}
+
+function bakeTransposeLine(line, steps) {
+  const prefixMatch = line.match(PREFIX_RE);
+  const chordPart = prefixMatch ? line.slice(prefixMatch[0].length) : line;
+  const rawTokens = [];
+  const tokenRe = /\([^)]*\)|[^\s]+|\s+/g;
+  let m;
+  while ((m = tokenRe.exec(chordPart)) !== null) rawTokens.push(m[0]);
+  const chordTokens = rawTokens.filter(t => t.trim());
+  if (chordTokens.length === 0 || !chordTokens.every(t => isChordToken(t.trim()))) return line;
+
+  const prefix = prefixMatch ? prefixMatch[0] : '';
+  const baked = rawTokens.map(t => {
+    if (!t.trim()) return t;
+    const tok = t.trim();
+    if (CHORD_RE.test(tok)) return transposeChord(normalizeChord(tok), steps);
+    if (isMarkerChord(tok)) {
+      const stars = tok.match(/^\*+/)[0];
+      const chordPart2 = tok.slice(stars.length);
+      return stars + transposeChord(normalizeChord(chordPart2), steps);
+    }
+    return t;
+  }).join('');
+  return prefix + baked;
 }
 
 function saveCurrentSong() {
