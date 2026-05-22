@@ -817,13 +817,22 @@ let fontSize = 15;
 function load() {
   try { songs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { songs = []; }
   if (songs.length === 0) {
-    songs = [{
-      id: "umg9iwj",
-      title: "He's Gazing You from the Black Mirror",
-      artist: "Inspitative",
-      content: `Intro : C C / G G / Am Am / F F ( 4 times )\n\n[Bridge]\n*Am Am / Am Am / F F / Am Am\n\n[Chorus]\nDm Em / F F / G\nC C / G G / Am Am / F F ( 4 times )\n\n( * )\n\n**Am Am / F F / G G / F F\nAm Am / F F / G G / C Em\n\n( ** , ** )\n\nOutro : Am`,
-      transpose: 0,
-    }];
+    songs = [
+      {
+        id: "o74o7ef",
+        title: "Felicity is Out There",
+        artist: "Inspirative",
+        content: `Intro : A / A / A / A ( 2 times )\n\n[Verse]\nD / A / D / A ( 2 times )\n\n[Bridge]\nD / A / D / A / D / E\n\n[Chorus]\nA / E/G# / F#m / E\nD / A / C#m / F#m / E\n\nD / D\nF#m / E/G# / F#m / E/G#\nF#m / E/G#\n\n[Bridge]\nD / A / D / A ( 2 times )\n\nBm / A / Bm / A ( 2 times )\nBm / A / Bm / D\n\n[Chorus]\nA / E/G# / F#m / E\nD / A / C#m / F#m / E\nD / A / C#m / F#m / E\nD / A / C#m / F#m / E\nD / A / C#m / F#m / E\n\nOutro : D`,
+        transpose: 3,
+      },
+      {
+        id: "umg9iwj",
+        title: "He's Gazing You from the Black Mirror",
+        artist: "Inspitative",
+        content: `Intro : G G / D D / Em Em / C C ( 4 times )\n\n[Bridge]\n*Em Em / Em Em / C C / Em Em\n\n[Chorus]\nAm Bm / C C / D\nG G / D D / Em Em / C C ( 4 times )\n\n( * )\n\n**Em Em / C C / D D / C C\nEm Em / C C / D D / G B\n\n( ** , ** )\n\nOutro : Em`,
+        transpose: 5,
+      }
+    ];
     save();
   }
 }
