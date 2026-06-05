@@ -675,6 +675,59 @@
 
   .toggle.on::after { transform: translateX(16px); }
 
+  /* ── Image import ── */
+  .img-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text-dim);
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--mono);
+    letter-spacing: 0.05em;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .img-btn:hover { border-color: var(--chord); color: var(--chord); }
+  .img-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .ai-loading {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    backdrop-filter: blur(3px);
+  }
+
+  .ai-loading-box {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 24px 32px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ai-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--border2);
+    border-top-color: var(--chord);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* ── Mobile responsive ── */
   @media (max-width: 640px) {
     .sidebar {
@@ -782,8 +835,14 @@
         <div class="toggle" id="darkToggle"></div>
       </div>
     </div>
+    <div style="border-top:1px solid var(--border);padding-top:14px;display:flex;flex-direction:column;gap:8px">
+      <span class="settings-label">Gemini API Key</span>
+      <input class="modal-input" id="geminiKeyInput" type="password" placeholder="AIza..." autocomplete="off"/>
+      <span style="font-size:10px;color:var(--text-muted)">ใช้สำหรับ 📷 Import จากรูป — เก็บไว้ใน browser เท่านั้น</span>
+    </div>
     <div class="modal-actions">
-      <button class="btn-confirm" onclick="closeSettings()">Done</button>
+      <button class="btn-cancel" onclick="closeSettings()">ยกเลิก</button>
+      <button class="btn-confirm" onclick="saveSettings()">Save</button>
     </div>
   </div>
 </div>
@@ -1011,7 +1070,7 @@ function buildMain() {
       <button class="edit-btn ${isEditing ? 'active' : ''}" id="editBtn" onclick="toggleEdit()">
         ${isEditing ? '✓ Done' : '✎ Edit'}
       </button>
-      ${isEditing ? `<button class="save-btn" onclick="saveCurrentSong()">SAVE</button>` : `<button class="edit-btn" onclick="exportOneSong('${currentId}')" title="Export เพลงนี้">↓ Song</button>`}
+      ${isEditing ? `<button class="save-btn" onclick="saveCurrentSong()">SAVE</button>` : `<button class="edit-btn" onclick="exportOneSong('${currentId}')" title="Export เพลงนี้">↓ Song</button><button class="img-btn" onclick="triggerImageImport()" title="Import chord จากรูป">📷 จากรูป</button><input type="file" id="imgFileInput" accept="image/*" style="display:none" onchange="handleImageImport(event)">`}
     </div>
     <div class="editor-wrap" id="editorWrap"></div>
   `;
@@ -1401,15 +1460,127 @@ function toggleDarkMode() {
 function openSettings() {
   document.getElementById('settingsModal').style.display = 'flex';
   applyTheme(document.body.classList.contains('dark'));
+  const keyInput = document.getElementById('geminiKeyInput');
+  if (keyInput) keyInput.value = localStorage.getItem('gemini_key') || '';
 }
 
 function closeSettings() {
   document.getElementById('settingsModal').style.display = 'none';
 }
 
+function saveSettings() {
+  const keyInput = document.getElementById('geminiKeyInput');
+  if (keyInput) {
+    const key = keyInput.value.trim();
+    if (key) localStorage.setItem('gemini_key', key);
+    else localStorage.removeItem('gemini_key');
+  }
+  closeSettings();
+  showToast('บันทึกแล้ว ✓');
+}
+
 document.getElementById('settingsModal')?.addEventListener('click', e => {
   if (e.target === document.getElementById('settingsModal')) closeSettings();
 });
+
+// ── Image import via Gemini ──
+function triggerImageImport() {
+  const key = localStorage.getItem('gemini_key');
+  if (!key) {
+    showToast('ใส่ Gemini API Key ใน ⚙ ก่อนนะ');
+    openSettings();
+    return;
+  }
+  document.getElementById('imgFileInput').click();
+}
+
+async function handleImageImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const key = localStorage.getItem('gemini_key');
+  if (!key) return;
+
+  // show loading
+  const loader = document.createElement('div');
+  loader.className = 'ai-loading';
+  loader.innerHTML = `<div class="ai-loading-box">
+    <div class="ai-spinner"></div>
+    <div style="font-size:12px;color:var(--text-dim);font-family:var(--mono)">AI กำลังอ่านคอร์ด...</div>
+  </div>`;
+  document.body.appendChild(loader);
+
+  try {
+    // convert image to base64
+    const base64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = () => res(reader.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    const mimeType = file.type || 'image/jpeg';
+
+    const prompt = `This is a screenshot of guitar chord sheet or tab. 
+Extract ONLY the chord progression as plain text.
+Format rules:
+- Chord line: write chords separated by spaces, use / as bar separator e.g. "Am G / F C"
+- Section headers: use [Verse], [Chorus], [Bridge] etc.
+- Repeat markers: use ( 2 times ), ( 4 times ) etc.
+- Intro/Outro/Verse prefix: use "Intro : chords", "Outro : chords"
+- Lyrics line: write as-is below the chord line
+- Do NOT include chord diagrams, fingering numbers, or tab notation
+- Output only the formatted chord sheet, no explanation`;
+
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: base64 } }
+            ]
+          }]
+        })
+      }
+    );
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err?.error?.message || 'API error');
+    }
+
+    const data = await resp.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    if (!text) throw new Error('ไม่ได้ผลลัพธ์จาก AI');
+
+    // create new song with result
+    const song = {
+      id: uid(),
+      title: file.name.replace(/\.[^.]+$/, '') || 'นำเข้าจากรูป',
+      artist: '',
+      content: text.trim(),
+      transpose: 0,
+    };
+    songs.unshift(song);
+    save();
+    isEditing = true;
+    currentId = song.id;
+    renderSidebar();
+    buildMain();
+    showToast('AI อ่านคอร์ดสำเร็จ ✓ ตรวจสอบและแก้ไขได้เลย');
+
+  } catch (err) {
+    showToast('เกิดข้อผิดพลาด: ' + err.message);
+    console.error(err);
+  } finally {
+    document.body.removeChild(loader);
+    e.target.value = '';
+  }
+}
 
 // ── Init ──
 load();
