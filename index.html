@@ -675,6 +675,111 @@
 
   .toggle.on::after { transform: translateX(16px); }
 
+  /* ── Chord on Lyric mode ── */
+  .col-mode-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .col-line {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 2px;
+  }
+
+  .col-chord-row {
+    display: flex;
+    min-height: 22px;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--chord);
+    white-space: pre;
+    line-height: 1.5;
+  }
+
+  .col-lyric-row {
+    display: flex;
+    font-family: var(--thai);
+    font-size: 14px;
+    color: var(--text);
+    white-space: pre;
+    line-height: 1.6;
+    cursor: text;
+  }
+
+  .col-word {
+    position: relative;
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: all 0.1s;
+    white-space: pre;
+    border-radius: 1px;
+  }
+
+  .col-word:hover {
+    border-bottom-color: var(--chord);
+    background: rgba(232,184,75,0.08);
+  }
+
+  .col-chord-popup {
+    position: fixed;
+    background: var(--surface);
+    border: 1px solid var(--chord);
+    border-radius: 6px;
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 300;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+
+  .col-chord-popup input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--chord);
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    width: 80px;
+    letter-spacing: 0.05em;
+  }
+
+  .col-chord-popup input::placeholder { color: var(--text-muted); }
+
+  .col-chord-popup button {
+    background: var(--chord);
+    color: #000;
+    border: none;
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: var(--mono);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .col-mode-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text-dim);
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--mono);
+    letter-spacing: 0.05em;
+    transition: all 0.12s;
+  }
+  .col-mode-btn:hover, .col-mode-btn.active { border-color: var(--chord); color: var(--chord); background: rgba(232,184,75,0.06); }
+
   /* ── Image import ── */
   .img-btn {
     background: transparent;
@@ -869,6 +974,7 @@ const STORAGE_KEY = "chordsheet_songs";
 let songs = [];
 let currentId = null;
 let isEditing = false;
+let isColMode = false;
 let transpose = 0;
 let fontSize = 15;
 
@@ -933,11 +1039,12 @@ const CHORD_RE = /^[A-Ga-g][b#]?(maj|min|m|M|dim|aug|sus|add|\d|\/[A-Ga-g][b#]?)
 const PREFIX_RE = /^(Intro|Outro|Instru|Interlude|Verse|Chorus|Bridge|Pre-Chorus|Solo|Coda)\s*:\s*/i;
 const SEPARATOR_RE = /^\/$/;
 const MARKER_RE = /^\*+$/;  // *, ** standalone
-const NEUTRAL_RE = /^(\d+|x\d*|\d*x|times|time|rpt|repeat|bar|bars|,)$/i;
+const NEUTRAL_RE = /^(\d+|x\d*|\d*x|times|time|rpt|repeat|bar|bars|,|#+)$/i;
 function isAnnotation(t) { return /^\(.*\)$/.test(t); }
 function isMarkerChord(tok) { return /^\*+[A-Ga-g][b#]?(maj|min|m|M|dim|aug|sus|add|\d|\/[A-Ga-g][b#]?)*$/.test(tok); }
+function isHashToken(t) { return /^#/.test(t); }
 function isChordToken(t) {
-  return CHORD_RE.test(t) || SEPARATOR_RE.test(t) || isAnnotation(t) || NEUTRAL_RE.test(t) || MARKER_RE.test(t) || isMarkerChord(t);
+  return CHORD_RE.test(t) || SEPARATOR_RE.test(t) || isAnnotation(t) || NEUTRAL_RE.test(t) || MARKER_RE.test(t) || isMarkerChord(t) || isHashToken(t);
 }
 
 // normalize chord token: capitalize root and bass note e.g. g/b → G/B
@@ -1008,6 +1115,12 @@ function renderLine(line, steps, fs) {
       }
       if (MARKER_RE.test(tok)) return `<span style="color:var(--chord);font-weight:700">${tok}</span>`;
       if (SEPARATOR_RE.test(tok)) return `<span style="color:var(--text-muted)">${tok}</span>`;
+      if (isHashToken(tok)) {
+        const isRest = /^#+$/.test(tok);
+        return isRest
+          ? `<span style="color:var(--text-muted);font-weight:700" title="ห้องเงียบ">${tok}</span>`
+          : `<span style="color:var(--text-muted);font-style:italic" title="comment">${tok}</span>`;
+      }
       if (NEUTRAL_RE.test(tok)) return `<span style="color:var(--text-muted);font-style:italic">${tok}</span>`;
       // annotation ( * ) ( ** , ** ) — chord color bold
       return `<span style="color:var(--chord);font-weight:700;font-style:normal">${tok}</span>`;
@@ -1067,6 +1180,7 @@ function buildMain() {
         <button class="ctrl-btn" onclick="changeFontSize(1)">+</button>
       </div>
       <div class="toolbar-sep"></div>
+      ${isEditing ? `<button class="col-mode-btn ${isColMode ? 'active' : ''}" onclick="toggleColMode()" title="โหมดใส่คอร์ดบนเนื้อ">🎵 Chord on Lyric</button>` : ''}
       <button class="edit-btn ${isEditing ? 'active' : ''}" id="editBtn" onclick="toggleEdit()">
         ${isEditing ? '✓ Done' : '✎ Edit'}
       </button>
@@ -1082,6 +1196,11 @@ function renderContent() {
   if (!wrap) return;
   const song = getSong(currentId);
   if (!song) return;
+
+  if (isEditing && isColMode) {
+    renderColMode();
+    return;
+  }
 
   if (isEditing) {
     const snippets = [
@@ -1144,7 +1263,11 @@ function selectSong(id) {
 }
 
 function toggleEdit() {
-  if (isEditing) autoSave();
+  if (isEditing) {
+    if (isColMode) colModeToTextarea();
+    autoSave();
+    isColMode = false;
+  }
   isEditing = !isEditing;
   buildMain();
 }
@@ -1219,6 +1342,367 @@ function bakeTransposeLine(line, steps) {
     return t;
   }).join('');
   return prefix + baked;
+}
+
+// ── Chord on Lyric mode ──
+function toggleColMode() {
+  if (isColMode) {
+    // save back to textarea before switching off
+    colModeToTextarea();
+  }
+  isColMode = !isColMode;
+  buildMain();
+}
+
+let _colData = [];
+let _undoStack = [];
+let _redoStack = [];
+const MAX_UNDO = 30;
+
+function pushUndo(text) {
+  _undoStack.push(text);
+  if (_undoStack.length > MAX_UNDO) _undoStack.shift();
+  _redoStack = [];
+  updateUndoRedoBtns();
+}
+
+function undoCol() {
+  if (_undoStack.length === 0) return;
+  const song = getSong(currentId);
+  if (!song) return;
+  _redoStack.push(song.content);
+  song.content = _undoStack.pop();
+  save();
+  _colData = parseToColData(song.content);
+  renderColLines();
+  updateUndoRedoBtns();
+}
+
+function redoCol() {
+  if (_redoStack.length === 0) return;
+  const song = getSong(currentId);
+  if (!song) return;
+  _undoStack.push(song.content);
+  song.content = _redoStack.pop();
+  save();
+  _colData = parseToColData(song.content);
+  renderColLines();
+  updateUndoRedoBtns();
+}
+
+function updateUndoRedoBtns() {
+  const u = document.getElementById('undoBtn');
+  const r = document.getElementById('redoBtn');
+  if (u) u.disabled = _undoStack.length === 0;
+  if (r) r.disabled = _redoStack.length === 0;
+}
+
+function parseToColData(text) {
+  const lines = text.split('\n');
+  const result = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (!line.trim()) { result.push({ type: 'empty', lyric: '', chords: [] }); i++; continue; }
+    if (/^\[.+\]$/.test(line.trim())) { result.push({ type: 'section', lyric: line, chords: [] }); i++; continue; }
+    // check if next line is a chord line
+    const nextLine = lines[i + 1] || '';
+    const isNextChord = isChordLine(nextLine);
+    if (isChordLine(line) && !isNextChord) {
+      result.push({ type: 'chord-only', lyric: line, chords: [] }); i++; continue;
+    }
+    if (isChordLine(line) && nextLine && !isChordLine(nextLine)) {
+      // chord line + lyric line pair
+      result.push({ type: 'lyric', lyric: nextLine, chords: parseChordPositions(line, nextLine) }); i += 2; continue;
+    }
+    result.push({ type: 'lyric', lyric: line, chords: [] }); i++;
+  }
+  return result;
+}
+
+function isChordLine(line) {
+  if (!line.trim()) return false;
+  const prefixMatch = line.match(PREFIX_RE);
+  const chordPart = prefixMatch ? line.slice(prefixMatch[0].length) : line;
+  const rawTokens = [];
+  const tokenRe = /\([^)]*\)|[^\s]+|\s+/g;
+  let m;
+  while ((m = tokenRe.exec(chordPart)) !== null) rawTokens.push(m[0]);
+  const chordTokens = rawTokens.filter(t => t.trim());
+  return chordTokens.length > 0 && chordTokens.every(t => isChordToken(t.trim()));
+}
+
+function parseChordPositions(chordLine, lyricLine) {
+  const chords = [];
+  const re = /[^\s]+/g;
+  let m;
+  while ((m = re.exec(chordLine)) !== null) {
+    chords.push({ pos: m.index, chord: m[0] });
+  }
+  return chords;
+}
+
+function colDataToText(data) {
+  return data.map(item => {
+    if (item.type === 'empty') return '';
+    if (item.type === 'section') return item.lyric;
+    if (item.type === 'chord-only') return item.lyric;
+    if (item.type === 'lyric') {
+      if (item.chords.length === 0) return item.lyric;
+      // rebuild chord line from positions
+      let chordLine = '';
+      for (const { pos, chord } of item.chords) {
+        while (chordLine.length < pos) chordLine += ' ';
+        chordLine += chord;
+        if (chordLine.length < pos + chord.length) chordLine = chordLine.slice(0, pos) + chord;
+      }
+      return chordLine + '\n' + item.lyric;
+    }
+    return item.lyric;
+  }).join('\n');
+}
+
+function colModeToTextarea() {
+  const song = getSong(currentId);
+  if (!song) return;
+  const text = colDataToText(_colData);
+  song.content = text;
+  save();
+}
+
+let _popupTarget = null;
+
+function renderColMode() {
+  const wrap = document.getElementById('editorWrap');
+  if (!wrap) return;
+  const song = getSong(currentId);
+  if (!song) return;
+
+  _colData = parseToColData(song.content || '');
+  _undoStack = [];
+  _redoStack = [];
+
+  const snippets = [
+    { label: 'Intro :', insert: 'Intro : ' },{ label: 'Verse :', insert: 'Verse : ' },
+    { label: 'Chorus :', insert: 'Chorus : ' },{ label: 'Bridge :', insert: 'Bridge : ' },
+    { label: 'Instru :', insert: 'Instru : ' },{ label: 'Outro :', insert: 'Outro : ' },
+    { label: '/', insert: ' / ' },{ label: '( 2 times )', insert: ' ( 2 times )' },
+    { label: '( 3 times )', insert: ' ( 3 times )' },{ label: '( 4 times )', insert: ' ( 4 times )' },
+    { label: '[Verse]', insert: '[Verse]\n' },{ label: '[Chorus]', insert: '[Chorus]\n' },{ label: '[Bridge]', insert: '[Bridge]\n' },
+  ];
+  const snippetBtns = snippets.map(s =>
+    `<button class="snippet-btn" data-insert="${s.insert.replace(/"/g,'&quot;')}" onmousedown="event.preventDefault();saveSelection()">${s.label}</button>`
+  ).join('');
+
+  wrap.innerHTML = `
+    <div class="meta-edit">
+      <input class="meta-input title-input" id="editTitle" placeholder="ชื่อเพลง" value="${song.title || ''}" oninput="liveUpdateMeta()">
+      <input class="meta-input" id="editArtist" placeholder="ศิลปิน" value="${song.artist || ''}" oninput="liveUpdateMeta()">
+    </div>
+    <div class="snippet-bar">
+      <span class="snippet-label">Insert</span>${snippetBtns}
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button id="undoBtn" class="ctrl-btn" onclick="undoCol()" title="Undo" disabled>↩</button>
+        <button id="redoBtn" class="ctrl-btn" onclick="redoCol()" title="Redo" disabled>↪</button>
+      </div>
+    </div>
+    <div class="col-mode-wrap" id="colModeWrap"></div>
+  `;
+
+  wrap.querySelectorAll('.snippet-btn').forEach(btn => {
+    btn.addEventListener('click', () => insertSnippetColMode(btn.getAttribute('data-insert')));
+  });
+
+  renderColLines();
+}
+
+function renderColLines() {
+  const wrap = document.getElementById('colModeWrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  _colData.forEach((item, idx) => {
+    const lineDiv = document.createElement('div');
+    lineDiv.className = 'col-line';
+    lineDiv.dataset.idx = idx;
+
+    if (item.type === 'empty') {
+      lineDiv.style.minHeight = '12px';
+      lineDiv.style.cursor = 'pointer';
+      lineDiv.title = 'คลิกเพิ่มบรรทัด';
+      wrap.appendChild(lineDiv);
+      return;
+    }
+
+    if (item.type === 'section') {
+      const s = document.createElement('div');
+      s.style.cssText = 'color:var(--chord-dim);font-size:13px;margin-top:16px;margin-bottom:4px;font-family:var(--mono);cursor:pointer';
+      s.textContent = item.lyric;
+      s.title = 'คลิกแก้ไข';
+      s.onclick = () => editRawLine(idx);
+      lineDiv.appendChild(s);
+      wrap.appendChild(lineDiv);
+      return;
+    }
+
+    if (item.type === 'chord-only') {
+      const s = document.createElement('div');
+      s.style.cssText = 'color:var(--chord);font-weight:700;font-family:var(--mono);font-size:14px;white-space:pre;cursor:pointer';
+      s.textContent = item.lyric;
+      s.onclick = () => editRawLine(idx);
+      lineDiv.appendChild(s);
+      wrap.appendChild(lineDiv);
+      return;
+    }
+
+    // lyric line with chord row
+    const chordRow = document.createElement('div');
+    chordRow.className = 'col-chord-row';
+    const lyricRow = document.createElement('div');
+    lyricRow.className = 'col-lyric-row';
+
+    // build chord display above lyric
+    if (item.chords.length > 0) {
+      let chordStr = '';
+      for (const { pos, chord } of item.chords) {
+        while (chordStr.length < pos) chordStr += ' ';
+        chordStr += chord;
+      }
+      chordRow.textContent = chordStr;
+    }
+
+    // split lyric into individual clickable characters
+    const lyric = item.lyric;
+    // find positions that already have chords
+    const chordPositions = new Set((item.chords || []).map(c => c.pos));
+
+    for (let ci = 0; ci < lyric.length; ci++) {
+      const ch = lyric[ci];
+      const span = document.createElement('span');
+      span.textContent = ch;
+      span.dataset.pos = ci;
+      span.dataset.lineIdx = idx;
+      if (ch !== ' ' && ch !== '\t') {
+        span.className = 'col-word';
+        // highlight chars that have chords above them
+        if (chordPositions.has(ci)) {
+          span.style.borderBottom = '2px solid var(--chord)';
+          span.style.color = 'var(--chord)';
+        }
+        const capturedPos = ci;
+        span.onclick = (e) => { e.stopPropagation(); showChordPopup(e, idx, capturedPos); };
+      }
+      lyricRow.appendChild(span);
+    }
+
+    lineDiv.appendChild(chordRow);
+    lineDiv.appendChild(lyricRow);
+    wrap.appendChild(lineDiv);
+  });
+}
+
+function showChordPopup(e, lineIdx, charPos) {
+  e.stopPropagation();
+  e.preventDefault();
+  removeChordPopup();
+
+  const existing = _colData[lineIdx]?.chords?.find(c => c.pos === charPos);
+  const popup = document.createElement('div');
+  popup.className = 'col-chord-popup';
+  popup.id = 'chordPopup';
+  popup.dataset.lineIdx = lineIdx;
+  popup.dataset.charPos = charPos;
+  popup.innerHTML = `
+    <input id="popupInput" placeholder="คอร์ด เช่น Am" value="${existing ? existing.chord : ''}" autocomplete="off" spellcheck="false" style="width:100px">
+    <button id="popupConfirm">✓</button>
+    ${existing ? `<button id="popupDelete" style="background:var(--danger)">×</button>` : ''}
+  `;
+
+  document.body.appendChild(popup);
+
+  // position popup above the clicked element
+  const rect = e.target.getBoundingClientRect();
+  const left = Math.max(8, Math.min(rect.left, window.innerWidth - 200));
+  const top = rect.top - 52 < 8 ? rect.bottom + 8 : rect.top - 52;
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+
+  const input = document.getElementById('popupInput');
+  input.focus();
+  input.select();
+
+  document.getElementById('popupConfirm').onclick = (ev) => {
+    ev.stopPropagation();
+    confirmChordPopup(lineIdx, charPos);
+  };
+  const delBtn = document.getElementById('popupDelete');
+  if (delBtn) delBtn.onclick = (ev) => { ev.stopPropagation(); removeChordAt(lineIdx, charPos); };
+
+  input.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.stopPropagation(); confirmChordPopup(lineIdx, charPos); }
+    if (ev.key === 'Escape') removeChordPopup();
+  });
+
+  // close on outside click — use mousedown to beat click
+  const outsideClose = (ev) => {
+    if (!popup.contains(ev.target)) { removeChordPopup(); document.removeEventListener('mousedown', outsideClose); }
+  };
+  setTimeout(() => document.addEventListener('mousedown', outsideClose), 150);
+}
+
+function confirmChordPopup(lineIdx, charPos) {
+  const input = document.getElementById('popupInput');
+  if (!input) return;
+  const chord = normalizeChord(input.value.trim());
+  if (!chord) { removeChordAt(lineIdx, charPos); return; }
+
+  const song = getSong(currentId);
+  if (song) pushUndo(song.content);
+
+  const item = _colData[lineIdx];
+  const existing = item.chords.findIndex(c => c.pos === charPos);
+  if (existing !== -1) item.chords[existing].chord = chord;
+  else item.chords.push({ pos: charPos, chord });
+  item.chords.sort((a, b) => a.pos - b.pos);
+
+  removeChordPopup();
+  colModeToTextarea();
+  renderColLines();
+}
+
+function removeChordAt(lineIdx, charPos) {
+  const song = getSong(currentId);
+  if (song) pushUndo(song.content);
+  const item = _colData[lineIdx];
+  item.chords = item.chords.filter(c => c.pos !== charPos);
+  removeChordPopup();
+  colModeToTextarea();
+  renderColLines();
+}
+
+function removeChordPopup() {
+  const p = document.getElementById('chordPopup');
+  if (p) p.remove();
+  document.removeEventListener('click', removeChordPopup);
+}
+
+function editRawLine(idx) {
+  const item = _colData[idx];
+  const newVal = prompt('แก้ไขบรรทัด:', item.lyric);
+  if (newVal === null) return;
+  item.lyric = newVal;
+  colModeToTextarea();
+  renderColLines();
+}
+
+function insertSnippetColMode(text) {
+  // append to end of song as new line
+  const song = getSong(currentId);
+  if (!song) return;
+  song.content = (song.content || '').trimEnd() + '\n' + text.trimEnd();
+  save();
+  _colData = parseToColData(song.content);
+  renderColLines();
 }
 
 function saveCurrentSong() {
